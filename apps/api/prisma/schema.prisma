@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+}
+
+enum RfqStatus {
+  DRAFT
+  SENT
+  RESPONDED
+  EXPIRED
+}
+
+model Client {
+  id            String       @id @default(cuid())
+  name          String
+  email         String       @unique
+  businessType  String
+  createdAt     DateTime     @default(now())
+  submissions   Submission[]
+  presentations Presentation[]
+}
+
+model Submission {
+  id             String           @id @default(cuid())
+  clientId       String
+  policyType     String
+  payload        Json
+  status         SubmissionStatus @default(DRAFT)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  client         Client           @relation(fields: [clientId], references: [id])
+  rfqs           Rfq[]
+  policyReviews  PolicyReview[]
+}
+
+model Insurer {
+  id         String  @id @default(cuid())
+  name       String  @unique
+  email      String
+  rfqTemplate String
+  rfqs       Rfq[]
+}
+
+model Rfq {
+  id            String    @id @default(cuid())
+  submissionId  String
+  insurerId     String
+  documentUrl   String?
+  emailSentTo   String?
+  status        RfqStatus @default(DRAFT)
+  createdAt     DateTime  @default(now())
+  submission    Submission @relation(fields: [submissionId], references: [id])
+  insurer       Insurer    @relation(fields: [insurerId], references: [id])
+  quotes        Quote[]
+}
+
+model Quote {
+  id               String   @id @default(cuid())
+  rfqId            String
+  premium          Float
+  deductible       Float
+  coverageSummary  String
+  createdAt        DateTime @default(now())
+  rfq              Rfq      @relation(fields: [rfqId], references: [id])
+}
+
+model Presentation {
+  id              String   @id @default(cuid())
+  clientId        String
+  title           String
+  fileUrl         String?
+  comparisonJson  Json
+  createdAt       DateTime @default(now())
+  client          Client   @relation(fields: [clientId], references: [id])
+}
+
+model PolicyReview {
+  id               String   @id @default(cuid())
+  submissionId     String
+  issuedPolicyText String
+  requestedClauses Json
+  findingsJson     Json
+  createdAt        DateTime @default(now())
+  submission       Submission @relation(fields: [submissionId], references: [id])
+}

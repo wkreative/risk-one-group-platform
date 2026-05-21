@@ -1,0 +1,16 @@
+{
+  "name": "risk-one-group-platform",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @rog/web & npm run dev --workspace @rog/api",
+    "dev:web": "npm run dev --workspace @rog/web",
+    "dev:api": "npm run dev --workspace @rog/api",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces"
+  }
+}
