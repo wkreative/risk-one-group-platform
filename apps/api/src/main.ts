@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import { config } from "./config.js";
 import { prisma } from "./db.js";
+import { authRouter } from "./modules/auth.js";
 import { intakeRouter } from "./modules/intake.js";
 import { policyEvaluationRouter } from "./modules/policy-evaluation.js";
 import { presentationRouter } from "./modules/presentation.js";
@@ -17,6 +18,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api", intakeRouter);
+app.use("/api", authRouter);
 app.use("/api", rfqRouter);
 app.use("/api", presentationRouter);
 app.use("/api", policyEvaluationRouter);

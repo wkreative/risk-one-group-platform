@@ -73,6 +73,8 @@ API: `http://localhost:4000/health`
 
 ## Endpoints principales
 
+- `POST /api/auth/seed-demo`
+- `POST /api/auth/login`
 - `POST /api/submissions`
 - `GET /api/submissions`
 - `POST /api/insurers/seed`
@@ -82,6 +84,26 @@ API: `http://localhost:4000/health`
 - `GET /api/presentations/:clientId`
 - `POST /api/policy-evaluations`
 - `GET /api/policy-evaluations/:submissionId`
+
+## Usuario demo
+
+1. Crear usuario demo:
+
+```bash
+curl -X POST http://localhost:4000/api/auth/seed-demo
+```
+
+2. Login demo:
+
+```bash
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo@admin.com","password":"admin1236"}'
+```
+
+Credenciales demo:
+- Username: `demo@admin.com`
+- Password: `admin1236`
 
 ## Subir a GitHub
 

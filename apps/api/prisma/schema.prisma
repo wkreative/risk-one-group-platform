@@ -20,6 +20,21 @@ enum RfqStatus {
   EXPIRED
 }
 
+enum UserRole {
+  ADMIN
+  OPERATOR
+  CLIENT
+  REVIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         UserRole @default(OPERATOR)
+  createdAt    DateTime @default(now())
+}
+
 model Client {
   id            String       @id @default(cuid())
   name          String
