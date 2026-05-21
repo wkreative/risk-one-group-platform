@@ -5,12 +5,17 @@
   "workspaces": [
     "apps/*"
   ],
+  "devDependencies": {
+    "prisma": "^5.15.1"
+  },
   "scripts": {
+    "postinstall": "prisma generate --schema apps/api/prisma/schema.prisma",
     "dev": "npm run dev --workspace @rog/web & npm run dev --workspace @rog/api",
     "dev:web": "npm run dev --workspace @rog/web",
     "dev:api": "npm run dev --workspace @rog/api",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
-    "test": "npm run test --workspaces"
+    "test": "npm run test --workspaces",
+    "prisma:generate": "prisma generate --schema apps/api/prisma/schema.prisma"
   }
 }

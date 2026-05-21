@@ -1,6 +1,7 @@
 # RISK ONE GROUP - Plataforma de Operaciones de Seguros
 
-Proyecto full-stack en TypeScript para digitalizar el flujo completo de operaciones de seguros:
+Proyecto full-stack en TypeScript para digitalizar el flujo completo de operaciones de seguros.
+El frontend y los endpoints API productivos viven en `apps/web` para despliegue directo en Vercel.
 
 1. Captacion del cliente
 2. Generador de solicitud de cotizacion (RFQ)
@@ -10,7 +11,8 @@ Proyecto full-stack en TypeScript para digitalizar el flujo completo de operacio
 ## Stack
 
 - Frontend: Next.js 14 + TypeScript
-- Backend: Express + TypeScript
+- Backend productivo (Vercel): Next.js Route Handlers + TypeScript
+- Backend local opcional: Express + TypeScript
 - Base de datos: PostgreSQL + Prisma ORM
 - Integraciones: Nodemailer para envio de RFQ por correo
 
@@ -43,26 +45,31 @@ cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-Si deseas envio real de correos, llena `SMTP_USER` y `SMTP_PASS` en `apps/api/.env`.
+Si deseas envio real de correos, llena `SMTP_USER` y `SMTP_PASS` en `apps/web/.env.local`.
 
 ### 4) Preparar Prisma
 
 ```bash
-npm run prisma:generate --workspace @rog/api
+npm run prisma:generate
 npm run prisma:migrate --workspace @rog/api -- --name init
 ```
 
 ### 5) Iniciar plataforma
 
-En dos terminales:
+En una terminal (modo Vercel-like):
 
 ```bash
-npm run dev:api
 npm run dev:web
 ```
 
 Web: `http://localhost:3000`
-API: `http://localhost:4000/health`
+API: `http://localhost:3000/api/health`
+
+Si quieres correr tambien el backend Express legacy:
+
+```bash
+npm run dev:api
+```
 
 ## Flujo funcional
 
@@ -90,20 +97,43 @@ API: `http://localhost:4000/health`
 1. Crear usuario demo:
 
 ```bash
-curl -X POST http://localhost:4000/api/auth/seed-demo
+curl -X POST http://localhost:3000/api/auth/seed-demo
 ```
 
 2. Login demo:
 
 ```bash
-curl -X POST http://localhost:4000/api/auth/login \
+curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"demo@admin.com","password":"admin1236"}'
 ```
 
+En Vercel cambia `localhost:3000` por tu dominio desplegado.
+
 Credenciales demo:
 - Username: `demo@admin.com`
 - Password: `admin1236`
+
+## Deploy en Vercel
+
+1. Importa el repo `wkreative/risk-one-group-platform` en Vercel.
+2. Framework detectado: `Next.js`.
+3. Define Root Directory como `apps/web`.
+4. Variables de entorno en Vercel Project Settings:
+   - `DATABASE_URL`
+   - `SMTP_HOST` (opcional)
+   - `SMTP_PORT` (opcional)
+   - `SMTP_USER` (opcional)
+   - `SMTP_PASS` (opcional)
+   - `SMTP_FROM` (opcional)
+   - `NEXT_PUBLIC_API_URL` dejar vacio
+5. Deploy.
+
+Despues del primer deploy, crea el usuario demo:
+
+```bash
+curl -X POST https://TU_DOMINIO_VERCEL/api/auth/seed-demo
+```
 
 ## Subir a GitHub
 
