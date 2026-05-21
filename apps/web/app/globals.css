@@ -1,11 +1,14 @@
 :root {
-  --bg: #f4f1ea;
-  --surface: #fffdf7;
-  --ink: #1f2a2e;
-  --primary: #0b5d6b;
-  --accent: #dd7f2d;
-  --muted: #5e6a6f;
-  --line: #d4d0c7;
+  --bg: #070f1f;
+  --bg-soft: #0d1a33;
+  --surface: #101f3b;
+  --surface-2: #14284d;
+  --text: #edf3ff;
+  --muted: #b7c2dd;
+  --primary: #22c1c3;
+  --primary-2: #3b82f6;
+  --line: rgba(255, 255, 255, 0.14);
+  --ok: #24d17e;
 }
 
 * {
@@ -14,74 +17,163 @@
 
 body {
   margin: 0;
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  color: var(--ink);
-  background: radial-gradient(circle at 20% 10%, #fff7dd 0%, transparent 45%), var(--bg);
+  color: var(--text);
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(1000px 480px at 80% -10%, rgba(59, 130, 246, 0.3), transparent),
+    radial-gradient(680px 420px at 12% 18%, rgba(34, 193, 195, 0.22), transparent),
+    var(--bg);
+}
+
+.shell {
+  min-height: 100vh;
 }
 
 .container {
-  max-width: 1120px;
+  width: min(1180px, 92vw);
   margin: 0 auto;
-  padding: 2rem 1rem 4rem;
 }
 
 .hero {
-  background: linear-gradient(130deg, #0b5d6b, #1c7d7e);
-  border-radius: 20px;
-  padding: 2rem;
-  color: #fff;
+  padding-top: 2rem;
 }
 
-.grid {
-  margin-top: 1.5rem;
-  display: grid;
+.heroTop {
+  display: flex;
+  justify-content: space-between;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  padding: 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(130deg, rgba(34, 193, 195, 0.14), rgba(59, 130, 246, 0.13)), var(--surface);
+  backdrop-filter: blur(8px);
 }
 
-.card {
-  background: var(--surface);
+.brand {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.logo {
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.4rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.8vw, 1.8rem);
+  letter-spacing: 0.01em;
+}
+
+p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.pill {
+  align-self: flex-start;
+  background: rgba(36, 209, 126, 0.14);
+  color: #9ef8ca;
+  border: 1px solid rgba(36, 209, 126, 0.4);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.84rem;
+}
+
+.status {
+  margin-top: 0.9rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(16, 31, 59, 0.85);
+  padding: 0.85rem 1rem;
+  color: #d7e2ff;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0.95rem;
+  padding: 1rem 0 2.5rem;
+}
+
+.panel {
+  grid-column: span 4;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)), var(--surface-2);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
 }
 
-.card h3 {
-  margin-top: 0;
+.panelWide {
+  grid-column: span 12;
 }
 
-.badge {
-  display: inline-block;
-  background: #e8f4f4;
-  color: var(--primary);
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-}
-
-input, textarea, select, button {
-  width: 100%;
-  padding: 0.65rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  margin-top: 0.5rem;
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-  background: var(--primary);
-  color: #fff;
-  border: none;
+.panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.02rem;
 }
 
 .row {
   display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.6rem;
+}
+
+input,
+select,
+button {
+  width: 100%;
+  margin-top: 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 0.7rem 0.78rem;
+  font: inherit;
+}
+
+input,
+select {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+button {
+  background: linear-gradient(130deg, var(--primary), var(--primary-2));
+  border: none;
+  color: white;
+  font-weight: 700;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  cursor: pointer;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .small {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 960px) {
+  .panel {
+    grid-column: span 12;
+  }
+
+  .heroTop {
+    flex-direction: column;
+  }
+
+  .pill {
+    align-self: flex-start;
+  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -12,6 +13,7 @@ type SubmissionPayload = {
 
 export default function HomePage() {
   const [message, setMessage] = useState("Sin actividad reciente");
+  const [isLoading, setIsLoading] = useState(false);
   const [form, setForm] = useState<SubmissionPayload>({
     client: { name: "", email: "", businessType: "" },
     policyType: "Responsabilidad Civil",
@@ -30,130 +32,187 @@ export default function HomePage() {
     return ["actividadPrincipal", "limiteCobertura", "experienciaReclamos"];
   }, [form.policyType]);
 
-  async function createSubmission() {
-    const response = await fetch(`${apiUrl}/api/submissions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
-    });
-    const data = await response.json();
+  useEffect(() => {
+    safeRequest<{ ok: boolean }>("/api/health")
+      .then(() => setMessage("Sistema listo. Inicia con el Modulo 1."))
+      .catch(() => setMessage("API no disponible. Revisa variables DATABASE_URL y despliegue."));
+  }, []);
+
+  async function safeRequest<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await fetch(`${apiUrl}${path}`, init);
+    const isJson = response.headers.get("content-type")?.includes("application/json");
+    const payload = isJson ? await response.json() : null;
+
     if (!response.ok) {
-      setMessage(`Error en captacion: ${JSON.stringify(data.error)}`);
-      return;
+      const details = payload && typeof payload === "object" && "error" in payload ? JSON.stringify(payload.error) : response.statusText;
+      throw new Error(details || "Error inesperado");
     }
-    setSubmissionId(data.id);
-    setClientId(data.clientId);
-    setMessage(`Captacion completada para ${data.client.name} (${data.id})`);
+
+    return payload as T;
+  }
+
+  function requireSubmission() {
+    if (!submissionId) {
+      setMessage("Primero debes completar el Modulo 1 para crear un submission.");
+      return false;
+    }
+    return true;
+  }
+
+  async function createSubmission() {
+    setIsLoading(true);
+    try {
+      const data = await safeRequest<{ id: string; clientId: string; client: { name: string } }>("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      setSubmissionId(data.id);
+      setClientId(data.clientId);
+      setMessage(`Captacion completada para ${data.client.name} (${data.id})`);
+    } catch (error) {
+      setMessage(`Error en captacion: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function seedInsurers() {
-    const response = await fetch(`${apiUrl}/api/insurers/seed`, { method: "POST" });
-    if (!response.ok) {
-      setMessage("No se pudieron sembrar aseguradoras");
-      return;
+    setIsLoading(true);
+    try {
+      await safeRequest("/api/insurers/seed", { method: "POST" });
+      setMessage("Aseguradoras semilla listas");
+    } catch (error) {
+      setMessage(`No se pudieron sembrar aseguradoras: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
     }
-    setMessage("Aseguradoras semilla listas");
   }
 
   async function generateRfqs() {
-    const listResponse = await fetch(`${apiUrl}/api/insurers`);
-    const insurers = await listResponse.json();
+    if (!requireSubmission()) return;
+    setIsLoading(true);
+    try {
+      const insurers = await safeRequest<Array<{ id: string }>>("/api/insurers");
+      if (insurers.length === 0) {
+        setMessage("No hay aseguradoras cargadas. Usa primero 'Sembrar Aseguradoras'.");
+        return;
+      }
 
-    const response = await fetch(`${apiUrl}/api/rfqs/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ submissionId, insurerIds: insurers.map((i: { id: string }) => i.id) })
-    });
+      await safeRequest("/api/rfqs/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submissionId, insurerIds: insurers.map((i) => i.id) })
+      });
 
-    if (!response.ok) {
-      setMessage("No se pudo generar RFQ. Verifica submission e insurers.");
-      return;
+      setMessage("RFQ generado y correos despachados (si SMTP esta configurado)");
+    } catch (error) {
+      setMessage(`No se pudo generar RFQ: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
     }
-    setMessage("RFQ generado y correos despachados (si SMTP configurado)");
   }
 
   async function generatePresentation() {
-    const response = await fetch(`${apiUrl}/api/presentations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, title: `Presentacion ${new Date().toLocaleDateString("es")}` })
-    });
-
-    if (!response.ok) {
-      setMessage("No se pudo generar presentacion");
+    if (!clientId) {
+      setMessage("Primero debes crear una captacion valida para obtener clientId.");
       return;
     }
-    setMessage("Presentacion generada para cliente");
+    setIsLoading(true);
+    try {
+      await safeRequest("/api/presentations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, title: `Presentacion ${new Date().toLocaleDateString("es")}` })
+      });
+      setMessage("Presentacion generada para cliente");
+    } catch (error) {
+      setMessage(`No se pudo generar presentacion: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function runPolicyEvaluation() {
-    const response = await fetch(`${apiUrl}/api/policy-evaluations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        submissionId,
-        issuedPolicyText:
-          "This policy includes limitecobertura and actividadprincipal. No sections are excluded from standard accidental coverage.",
-        requestedClauses: ["limitecobertura", "actividadprincipal", "cobertura internacional"]
-      })
-    });
-
-    if (!response.ok) {
-      setMessage("No se pudo evaluar poliza emitida");
-      return;
+    if (!requireSubmission()) return;
+    setIsLoading(true);
+    try {
+      const data = await safeRequest<{ id: string }>("/api/policy-evaluations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionId,
+          issuedPolicyText:
+            "This policy includes limitecobertura and actividadprincipal. No sections are excluded from standard accidental coverage.",
+          requestedClauses: ["limitecobertura", "actividadprincipal", "cobertura internacional"]
+        })
+      });
+      setMessage(`Evaluacion completada: review ${data.id}`);
+    } catch (error) {
+      setMessage(`No se pudo evaluar poliza emitida: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
     }
-    const data = await response.json();
-    setMessage(`Evaluacion completada: review ${data.id}`);
   }
 
   return (
-    <main className="container">
-      <section className="hero">
-        <h1>RISK ONE GROUP</h1>
-        <p>Plataforma de Operaciones de Seguros en TypeScript</p>
-        <span className="badge">Estado: {message}</span>
+    <main className="shell">
+      <section className="hero container">
+        <div className="heroTop">
+          <div className="brand">
+            <Image src="/RiskOne-logo1.png" alt="Risk One Group" width={170} height={48} priority className="logo" />
+            <div>
+              <h1>Plataforma de Operaciones</h1>
+              <p>Flujo integral de seguros: captacion, RFQ, presentacion y evaluacion</p>
+            </div>
+          </div>
+          <div className="pill">{isLoading ? "Procesando..." : "Operativa"}</div>
+        </div>
+        <div className="status">{message}</div>
       </section>
 
-      <section className="grid">
-        <article className="card">
-          <h3>Modulo 1 - Captacion</h3>
+      <section className="container layout">
+        <article className="panel panelWide">
+          <h3>Modulo 1 - Captacion del cliente</h3>
           <div className="row">
-            <input placeholder="Nombre cliente" onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, name: e.target.value } }))} />
-            <input placeholder="Email" onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, email: e.target.value } }))} />
-            <input placeholder="Tipo negocio" onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, businessType: e.target.value } }))} />
+            <input placeholder="Nombre del cliente" onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, name: e.target.value } }))} />
+            <input placeholder="Email" type="email" onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, email: e.target.value } }))} />
+            <input placeholder="Tipo de negocio" onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, businessType: e.target.value } }))} />
           </div>
           <select value={form.policyType} onChange={(e) => setForm((v) => ({ ...v, policyType: e.target.value }))}>
             <option>Responsabilidad Civil</option>
             <option>Propiedad</option>
             <option>Salud Corporativo</option>
           </select>
-          {dynamicFields.map((field) => (
-            <input
-              key={field}
-              placeholder={field}
-              onChange={(e) => setForm((v) => ({ ...v, payload: { ...v.payload, [field]: e.target.value } }))}
-            />
-          ))}
-          <button onClick={createSubmission}>Guardar Captacion</button>
-          <p className="small">Submission ID: {submissionId || "-"}</p>
+          <div className="row">
+            {dynamicFields.map((field) => (
+              <input
+                key={field}
+                placeholder={field}
+                onChange={(e) => setForm((v) => ({ ...v, payload: { ...v.payload, [field]: e.target.value } }))}
+              />
+            ))}
+          </div>
+          <button disabled={isLoading} onClick={createSubmission}>Guardar Captacion</button>
+          <p className="small">Submission ID: {submissionId || "-"} | Client ID: {clientId || "-"}</p>
         </article>
 
-        <article className="card">
+        <article className="panel">
           <h3>Modulo 2 - RFQ</h3>
-          <button onClick={seedInsurers}>Sembrar Aseguradoras</button>
-          <button onClick={generateRfqs}>Generar RFQ y Enviar</button>
-          <p className="small">Genera documentos y correos automaticos por aseguradora.</p>
+          <button disabled={isLoading} onClick={seedInsurers}>Sembrar Aseguradoras</button>
+          <button disabled={isLoading} onClick={generateRfqs}>Generar RFQ y Enviar</button>
+          <p className="small">El sistema construye la solicitud y dispara envio automatico por aseguradora.</p>
         </article>
 
-        <article className="card">
+        <article className="panel">
           <h3>Modulo 3 - Presentacion</h3>
-          <button onClick={generatePresentation}>Crear Presentacion Cliente</button>
-          <p className="small">Consolida cotizaciones y genera salida profesional.</p>
+          <button disabled={isLoading} onClick={generatePresentation}>Crear Presentacion Cliente</button>
+          <p className="small">Consolida alternativas de cobertura y prepara una salida profesional.</p>
         </article>
 
-        <article className="card">
+        <article className="panel">
           <h3>Modulo 4 - Evaluacion de Poliza</h3>
-          <button onClick={runPolicyEvaluation}>Ejecutar Evaluacion</button>
+          <button disabled={isLoading} onClick={runPolicyEvaluation}>Ejecutar Evaluacion</button>
           <p className="small">Detecta clausulas faltantes, lenguaje no conforme y contradicciones.</p>
         </article>
       </section>
