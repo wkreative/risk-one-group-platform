@@ -1,36 +1,50 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
-
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+import { useMemo, useState } from "react";
 
 type SubmissionPayload = {
   client: { name: string; email: string; businessType: string };
   policyType: string;
   payload: Record<string, string>;
+  additionalNotes: string;
 };
 
 export default function HomePage() {
-  // Login State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // App State
-  const [message, setMessage] = useState("Sin actividad reciente");
+  const [activeView, setActiveView] = useState("dashboard"); 
+  const [hasClient, setHasClient] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
   const [form, setForm] = useState<SubmissionPayload>({
     client: { name: "", email: "", businessType: "" },
     policyType: "Responsabilidad Civil",
-    payload: {}
+    payload: {},
+    additionalNotes: ""
   });
-  const [submissionId, setSubmissionId] = useState("");
-  const [clientId, setClientId] = useState("");
   
-  // Wizard State (Modulo 1)
-  const [currentStep, setCurrentStep] = useState(1);
+  // M2
+  const insurers = [
+    { id: "INS-1", name: "Chubb Seguros" },
+    { id: "INS-2", name: "Mapfre" },
+    { id: "INS-3", name: "Zurich" },
+    { id: "INS-4", name: "AIG" },
+    { id: "INS-5", name: "Liberty Mutual" }
+  ];
+  const [selectedInsurers, setSelectedInsurers] = useState<string[]>([]);
+  const [rfqSent, setRfqSent] = useState(false);
+
+  // M3
+  const [quotesUploaded, setQuotesUploaded] = useState<Record<string, boolean>>({});
+  const [presentationGenerated, setPresentationGenerated] = useState(false);
+
+  // M4
+  const [policyUploaded, setPolicyUploaded] = useState(false);
+  const [evaluationDone, setEvaluationDone] = useState(false);
 
   const dynamicFields = useMemo(() => {
     if (form.policyType === "Propiedad") {
@@ -42,54 +56,18 @@ export default function HomePage() {
     return ["actividadPrincipal", "limiteCobertura", "experienciaReclamos"];
   }, [form.policyType]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      safeRequest<{ ok: boolean }>("/api/health")
-        .then(() => setMessage("Sistema listo. Inicia con el Modulo 1."))
-        .catch(() => setMessage("API no disponible. Revisa variables DATABASE_URL y despliegue."));
-    }
-  }, [isAuthenticated]);
+  const formatCurrency = (val: string) => {
+    const num = val.replace(/[^0-9]/g, "");
+    if (!num) return "";
+    return "$" + parseInt(num, 10).toLocaleString("en-US");
+  };
 
-  async function safeRequest<T>(path: string, init?: RequestInit): Promise<T> {
-    // MODO DEMO: Interceptamos las llamadas para que funcione sin backend/DB
-    await new Promise(r => setTimeout(r, 800)); // Simulamos latencia de red
-
-    if (path === "/api/health") return { ok: true } as T;
-    
-    if (path === "/api/submissions" && init?.method === "POST") {
-      const body = JSON.parse(init.body as string);
-      return { 
-        id: "SUB-" + Math.floor(1000 + Math.random() * 9000), 
-        clientId: "CLI-" + Math.floor(1000 + Math.random() * 9000), 
-        client: { name: body.client.name || "Cliente Demo" } 
-      } as T;
+  const handleInputChange = (field: string, value: string) => {
+    if (field === "valorAsegurado" || field === "proteccionIncendio" || field === "limiteCobertura") {
+      value = formatCurrency(value);
     }
-    
-    if (path === "/api/insurers/seed") return { success: true } as T;
-    
-    if (path === "/api/insurers") {
-      return [{ id: "INS-1" }, { id: "INS-2" }, { id: "INS-3" }] as T;
-    }
-    
-    if (path === "/api/rfqs/generate") return { success: true } as T;
-    
-    if (path === "/api/presentations") return { success: true } as T;
-    
-    if (path === "/api/policy-evaluations") {
-      return { id: "EVAL-" + Math.floor(100 + Math.random() * 900) } as T;
-    }
-
-    const response = await fetch(`${apiUrl}${path}`, init);
-    const isJson = response.headers.get("content-type")?.includes("application/json");
-    const payload = isJson ? await response.json() : null;
-
-    if (!response.ok) {
-      const details = payload && typeof payload === "object" && "error" in payload ? JSON.stringify(payload.error) : response.statusText;
-      throw new Error(details || "Error inesperado");
-    }
-
-    return payload as T;
-  }
+    setForm(v => ({ ...v, payload: { ...v.payload, [field]: value } }));
+  };
 
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -101,326 +79,431 @@ export default function HomePage() {
     }
   }
 
-  function requireSubmission() {
-    if (!submissionId) {
-      setMessage("Primero debes completar el Modulo 1 para crear un submission.");
-      return false;
-    }
-    return true;
-  }
+  // --- Actions ---
+  const delay = () => new Promise(r => setTimeout(r, 800));
 
   async function createSubmission() {
     setIsLoading(true);
-    try {
-      const data = await safeRequest<{ id: string; clientId: string; client: { name: string } }>("/api/submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
-      setSubmissionId(data.id);
-      setClientId(data.clientId);
-      setMessage(`Captación completada para ${data.client.name} (${data.id})`);
-      setCurrentStep(3); // Move to finish step
-    } catch (error) {
-      setMessage(`Error en captación: ${(error as Error).message}`);
-    } finally {
-      setIsLoading(false);
-    }
+    await delay();
+    setHasClient(true);
+    setIsLoading(false);
+    setActiveView("m2");
   }
 
-  async function seedInsurers() {
+  async function producePDF() {
     setIsLoading(true);
-    try {
-      await safeRequest("/api/insurers/seed", { method: "POST" });
-      setMessage("Aseguradoras semilla listas");
-    } catch (error) {
-      setMessage(`No se pudieron sembrar aseguradoras: ${(error as Error).message}`);
-    } finally {
-      setIsLoading(false);
-    }
+    await delay();
+    alert("PDF del RFQ estructurado y guardado en el expediente.");
+    setIsLoading(false);
   }
 
-  async function generateRfqs() {
-    if (!requireSubmission()) return;
-    setIsLoading(true);
-    try {
-      const insurers = await safeRequest<Array<{ id: string }>>("/api/insurers");
-      if (insurers.length === 0) {
-        setMessage("No hay aseguradoras cargadas. Usa primero 'Sembrar Aseguradoras'.");
-        return;
-      }
-
-      await safeRequest("/api/rfqs/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ submissionId, insurerIds: insurers.map((i) => i.id) })
-      });
-
-      setMessage("RFQ generado y correos despachados (Tracking Activado)");
-    } catch (error) {
-      setMessage(`No se pudo generar RFQ: ${(error as Error).message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function generatePresentation() {
-    if (!clientId) {
-      setMessage("Primero debes crear una captación válida para obtener clientId.");
+  async function sendRfq() {
+    if (selectedInsurers.length === 0) {
+      alert("Selecciona al menos una aseguradora.");
       return;
     }
     setIsLoading(true);
-    try {
-      await safeRequest("/api/presentations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, title: `Presentación ${new Date().toLocaleDateString("es")}` })
-      });
-      setMessage("Presentación generada. Enlace interactivo enviado al cliente.");
-    } catch (error) {
-      setMessage(`No se pudo generar presentación: ${(error as Error).message}`);
-    } finally {
-      setIsLoading(false);
-    }
+    await delay();
+    setRfqSent(true);
+    setIsLoading(false);
+    setActiveView("m3");
   }
 
-  async function runPolicyEvaluation() {
-    if (!requireSubmission()) return;
+  function handleQuoteUpload(id: string) {
+    setQuotesUploaded(prev => ({ ...prev, [id]: true }));
+  }
+
+  async function createPresentation() {
     setIsLoading(true);
-    try {
-      const data = await safeRequest<{ id: string }>("/api/policy-evaluations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionId,
-          issuedPolicyText:
-            "This policy includes limitecobertura and actividadprincipal. No sections are excluded from standard accidental coverage.",
-          requestedClauses: ["limitecobertura", "actividadprincipal", "cobertura internacional"]
-        })
-      });
-      setMessage(`Evaluación IA completada: Revisión ${data.id}. 0 discrepancias detectadas.`);
-    } catch (error) {
-      setMessage(`No se pudo evaluar póliza emitida: ${(error as Error).message}`);
-    } finally {
-      setIsLoading(false);
+    await delay();
+    setPresentationGenerated(true);
+    setIsLoading(false);
+  }
+
+  async function analyzePolicy() {
+    if (!policyUploaded) {
+      alert("Sube la póliza primero.");
+      return;
     }
+    setIsLoading(true);
+    await delay();
+    setEvaluationDone(true);
+    setIsLoading(false);
   }
 
   if (!isAuthenticated) {
     return (
-      <main className="shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <section className="container" style={{ maxWidth: '420px' }}>
-          <article className="panel" style={{ padding: '2.5rem', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
-            <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '15px', marginBottom: '1.5rem' }}>
-               <Image src="/RiskOne-logo1.png" alt="Risk One Group" width={170} height={48} priority className="logo" />
+      <main className="login-wrapper">
+        <section className="login-box">
+          <div className="login-logo">
+             <Image src="/RiskOne-logo1.png" alt="Risk One Group" width={200} height={56} priority />
+          </div>
+          <h2>Acceso Corporativo</h2>
+          <p>Portal Operativo de Seguros</p>
+          <form onSubmit={handleLogin}>
+            <div className="input-group">
+              <label>Correo Electrónico</label>
+              <input type="email" placeholder="user@admin.com" value={username} onChange={e => setUsername(e.target.value)} required />
             </div>
-            <h2 style={{ marginBottom: '0.5rem', fontSize: '1.5rem', fontWeight: '600' }}>Acceso al Portal</h2>
-            <p style={{ marginBottom: '2rem', color: 'var(--muted)', fontSize: '0.9rem' }}>Plataforma Operativa de Seguros</p>
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', textAlign: 'left' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--muted)' }}>Correo Electrónico</label>
-                <input 
-                  type="email" 
-                  placeholder="ej. user@admin.com" 
-                  value={username} 
-                  onChange={e => setUsername(e.target.value)} 
-                  required 
-                  style={{ width: '100%', margin: 0 }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--muted)' }}>Contraseña</label>
-                <input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  value={password} 
-                  onChange={e => setPassword(e.target.value)} 
-                  required 
-                  style={{ width: '100%', margin: 0 }}
-                />
-              </div>
-              {loginError && <div style={{ color: '#f87171', fontSize: '0.85rem', background: 'rgba(248, 113, 113, 0.1)', padding: '0.5rem', borderRadius: '6px', border: '1px solid rgba(248, 113, 113, 0.2)' }}>{loginError}</div>}
-              <button type="submit" style={{ marginTop: '0.5rem', padding: '0.8rem', fontSize: '1rem' }}>Iniciar Sesión</button>
-            </form>
-          </article>
+            <div className="input-group">
+              <label>Contraseña</label>
+              <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+            </div>
+            {loginError && <div className="error-box">{loginError}</div>}
+            <button type="submit" className="btn-primary" style={{width: '100%', marginTop: '1rem'}}>Iniciar Sesión</button>
+          </form>
         </section>
+        <style dangerouslySetInnerHTML={{__html: \`
+          body { margin: 0; font-family: 'Inter', sans-serif; background: #e2e8f0; }
+          .login-wrapper { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+          .login-box { background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; }
+          .login-logo { margin-bottom: 2rem; text-align: center; }
+          .login-box h2 { margin: 0 0 0.5rem; font-size: 1.5rem; color: #0f172a; }
+          .login-box p { color: #64748b; margin: 0 0 2rem; font-size: 0.9rem; }
+          .input-group { margin-bottom: 1.5rem; }
+          .input-group label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.5rem; color: #1e293b; }
+          input { width: 100%; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; }
+          .btn-primary { background: #0f172a; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 500; cursor: pointer; }
+          .error-box { background: #fef2f2; border: 1px solid #fca5a5; color: #ef4444; padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; }
+        \`}} />
       </main>
     );
   }
 
   return (
-    <main className="shell">
-      <section className="hero container">
-        <div className="heroTop">
-          <div className="brand">
-            <Image src="/RiskOne-logo1.png" alt="Risk One Group" width={170} height={48} priority className="logo" />
-            <div>
-              <h1>Plataforma de Operaciones</h1>
-              <p>Flujo integral: Captación → RFQ → Presentación → Evaluación</p>
-            </div>
-          </div>
-          <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-            <div className="pill" style={{ background: 'rgba(34, 193, 195, 0.1)', color: '#22c1c3', border: '1px solid rgba(34, 193, 195, 0.3)'}}>
-               👤 {username}
-            </div>
-            <div className="pill">{isLoading ? "Procesando..." : "🟢 Sistema Operativo"}</div>
-            <button onClick={() => setIsAuthenticated(false)} style={{ margin: 0, padding: '0.4rem 0.8rem', width: 'auto', background: 'transparent', border: '1px solid var(--line)', color: 'var(--muted)'}}>Salir</button>
-          </div>
+    <div className="dashboard-layout">
+      {/* Sidebar Nav */}
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <Image src="/RiskOne-logo1.png" alt="Risk One Group" width={150} height={42} priority />
         </div>
-        <div className="status">
-           <strong>Última actividad:</strong> {message}
-        </div>
-      </section>
-
-      <section className="container layout">
-        {/* Modulo 1: Captación (Wizard) */}
-        <article className="panel panelWide">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3>Módulo 1: Captación del Cliente</h3>
-            <div style={{ display: 'flex', gap: '5px' }}>
-              {[1, 2, 3].map(step => (
-                <div key={step} style={{ 
-                  width: '30px', height: '6px', borderRadius: '3px', 
-                  background: currentStep >= step ? 'var(--primary)' : 'var(--line)',
-                  transition: 'background 0.3s ease'
-                }} />
-              ))}
+        <nav className="sidebar-nav">
+          <div className="nav-section">PRINCIPAL</div>
+          <button className={\`nav-item \${activeView === 'dashboard' ? 'active' : ''}\`} onClick={() => setActiveView('dashboard')}>
+            📊 Dashboard
+          </button>
+          
+          <div className="nav-section" style={{marginTop: '2rem'}}>CLIENTES ACTIVOS</div>
+          <div className="client-folder">
+            <div className="client-name">
+              📁 {form.client.name || "Nuevo Prospecto"}
+            </div>
+            <div className="client-modules">
+              <button className={\`nav-item sub-item \${activeView === 'm1' ? 'active' : ''}\`} onClick={() => setActiveView('m1')}>
+                1. Captación
+              </button>
+              <button disabled={!hasClient} className={\`nav-item sub-item \${activeView === 'm2' ? 'active' : ''}\`} onClick={() => setActiveView('m2')}>
+                2. Generar RFQ
+              </button>
+              <button disabled={!rfqSent} className={\`nav-item sub-item \${activeView === 'm3' ? 'active' : ''}\`} onClick={() => setActiveView('m3')}>
+                3. Presentación
+              </button>
+              <button disabled={!hasClient} className={\`nav-item sub-item \${activeView === 'm4' ? 'active' : ''}\`} onClick={() => setActiveView('m4')}>
+                4. Auditoría IA
+              </button>
             </div>
           </div>
+        </nav>
+        <div className="sidebar-footer">
+          <div className="user-info">👤 {username}</div>
+          <button onClick={() => setIsAuthenticated(false)} className="btn-logout">Cerrar Sesión</button>
+        </div>
+      </aside>
 
-          <div style={{ background: 'rgba(0,0,0,0.1)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--line)' }}>
-            {currentStep === 1 && (
-              <div style={{ animation: 'fadeIn 0.4s ease' }}>
-                <h4 style={{ margin: '0 0 1rem', color: 'var(--primary)' }}>Paso 1: Datos Generales</h4>
-                <div className="row">
-                  <div>
-                    <label className="small">Nombre del Cliente</label>
-                    <input placeholder="Ej. Empresa SA" value={form.client.name} onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, name: e.target.value } }))} />
-                  </div>
-                  <div>
-                    <label className="small">Correo de Contacto</label>
-                    <input placeholder="contacto@empresa.com" type="email" value={form.client.email} onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, email: e.target.value } }))} />
-                  </div>
-                  <div>
-                    <label className="small">Industria / Sector</label>
-                    <input placeholder="Ej. Construcción" value={form.client.businessType} onChange={(e) => setForm((v) => ({ ...v, client: { ...v.client, businessType: e.target.value } }))} />
-                  </div>
+      {/* Main Content */}
+      <main className="main-content">
+        <header className="topbar">
+          <h2>
+            {activeView === 'dashboard' && "Panel General"}
+            {activeView === 'm1' && "Módulo 1: Datos Generales e Intake"}
+            {activeView === 'm2' && "Módulo 2: Emisión de RFQ a Mercado"}
+            {activeView === 'm3' && "Módulo 3: Análisis de Cotizaciones"}
+            {activeView === 'm4' && "Módulo 4: Auditoría de Póliza Emitida"}
+          </h2>
+        </header>
+
+        <div className="content-area">
+          {activeView === 'dashboard' && (
+            <div className="card fade-in">
+              <h3 style={{marginTop: 0}}>Bienvenido al Portal Operativo</h3>
+              <p className="text-muted">Selecciona un cliente en el panel izquierdo para gestionar su póliza, o inicia un nuevo expediente.</p>
+              <button className="btn-primary" onClick={() => setActiveView('m1')} style={{marginTop: '1rem'}}>+ Nueva Captación de Cliente</button>
+            </div>
+          )}
+
+          {activeView === 'm1' && (
+            <div className="card fade-in">
+              <div className="form-grid">
+                <div className="input-group">
+                  <label>Nombre del Cliente</label>
+                  <input placeholder="Ej. Empresa SA" value={form.client.name} onChange={e => setForm(v => ({ ...v, client: { ...v.client, name: e.target.value } }))} />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                  <button style={{ width: 'auto', padding: '0.6rem 2rem' }} onClick={() => setCurrentStep(2)}>Siguiente →</button>
+                <div className="input-group">
+                  <label>Correo de Contacto</label>
+                  <input type="email" placeholder="contacto@empresa.com" value={form.client.email} onChange={e => setForm(v => ({ ...v, client: { ...v.client, email: e.target.value } }))} />
+                </div>
+                <div className="input-group">
+                  <label>Industria / Sector</label>
+                  <input placeholder="Ej. Construcción" value={form.client.businessType} onChange={e => setForm(v => ({ ...v, client: { ...v.client, businessType: e.target.value } }))} />
                 </div>
               </div>
-            )}
 
-            {currentStep === 2 && (
-              <div style={{ animation: 'fadeIn 0.4s ease' }}>
-                <h4 style={{ margin: '0 0 1rem', color: 'var(--primary)' }}>Paso 2: Detalles del Riesgo</h4>
-                <label className="small">Tipo de Póliza Requerida</label>
-                <select value={form.policyType} onChange={(e) => setForm((v) => ({ ...v, policyType: e.target.value }))} style={{ marginBottom: '1rem' }}>
+              <hr className="divider" />
+              
+              <div className="input-group" style={{maxWidth: '300px', marginBottom: '1.5rem'}}>
+                <label>Tipo de Póliza Requerida</label>
+                <select value={form.policyType} onChange={e => setForm(v => ({ ...v, policyType: e.target.value }))}>
                   <option>Responsabilidad Civil</option>
                   <option>Propiedad</option>
                   <option>Salud Corporativo</option>
                 </select>
-                <div className="row">
-                  {dynamicFields.map((field) => (
-                    <div key={field}>
-                      <label className="small" style={{ textTransform: 'capitalize' }}>{field.replace(/([A-Z])/g, ' $1').trim()}</label>
-                      <input
-                        placeholder={`Ingresar ${field.toLowerCase()}`}
-                        value={form.payload[field] || ""}
-                        onChange={(e) => setForm((v) => ({ ...v, payload: { ...v.payload, [field]: e.target.value } }))}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
-                  <button style={{ width: 'auto', padding: '0.6rem 2rem', background: 'transparent', border: '1px solid var(--line)' }} onClick={() => setCurrentStep(1)}>← Atrás</button>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button style={{ width: 'auto', padding: '0.6rem 1.5rem', background: 'rgba(255,255,255,0.1)' }}>💾 Guardar Borrador</button>
-                    <button disabled={isLoading} style={{ width: 'auto', padding: '0.6rem 2rem' }} onClick={createSubmission}>Finalizar Captación</button>
+              </div>
+
+              <div className="form-grid">
+                {dynamicFields.map(field => (
+                  <div className="input-group" key={field}>
+                    <label style={{textTransform: 'capitalize'}}>{field.replace(/([A-Z])/g, ' $1').trim()}</label>
+                    <input
+                      placeholder={field === 'valorAsegurado' || field === 'proteccionIncendio' ? '$0' : \`Ingresar \${field.toLowerCase()}\`}
+                      value={form.payload[field] || ""}
+                      onChange={e => handleInputChange(field, e.target.value)}
+                    />
                   </div>
-                </div>
+                ))}
               </div>
-            )}
 
-            {currentStep === 3 && (
-              <div style={{ textAlign: 'center', padding: '2rem 0', animation: 'fadeIn 0.4s ease' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
-                <h4 style={{ margin: '0 0 0.5rem', color: 'var(--ok)', fontSize: '1.2rem' }}>Captación Completada Exitosamente</h4>
-                <p className="small">El expediente ha sido estructurado y está listo para cotización.</p>
-                <div style={{ marginTop: '1rem', display: 'inline-block', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
-                  <span className="small">Submission ID: <strong>{submissionId}</strong></span> | <span className="small">Client ID: <strong>{clientId}</strong></span>
-                </div>
-                <div style={{ marginTop: '1.5rem' }}>
-                   <button style={{ width: 'auto', background: 'transparent', border: '1px solid var(--line)', padding: '0.5rem 1rem' }} onClick={() => { setCurrentStep(1); setSubmissionId(""); setClientId(""); }}>Nueva Captación</button>
-                </div>
+              <div className="input-group" style={{marginTop: '1.5rem'}}>
+                <label>Especificaciones Adicionales / Notas</label>
+                <textarea 
+                  rows={4} 
+                  placeholder="Escribe comentarios, requisitos especiales o exclusiones deseadas..."
+                  value={form.additionalNotes}
+                  onChange={e => setForm(v => ({ ...v, additionalNotes: e.target.value }))}
+                />
               </div>
-            )}
-          </div>
-        </article>
 
-        {/* Modulo 2: RFQ */}
-        <article className="panel">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-            <span style={{ background: 'var(--primary-2)', color: 'white', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '0.8rem', fontWeight: 'bold' }}>2</span>
-            <h3 style={{ margin: 0 }}>Generador de RFQ</h3>
-          </div>
-          <p className="small" style={{ marginBottom: '1.5rem' }}>Estructura y envía la solicitud de cotización (RFQ) a las aseguradoras de forma automática con seguimiento de apertura.</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            <button disabled={isLoading} onClick={seedInsurers} style={{ background: 'rgba(255,255,255,0.05)', border: '1px dashed var(--line)' }}>1. Sincronizar Aseguradoras</button>
-            <button disabled={isLoading || !submissionId} onClick={generateRfqs}>2. Emitir RFQ a Mercado</button>
-          </div>
-          {submissionId && <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(34, 193, 195, 0.05)', borderRadius: '8px', border: '1px solid rgba(34, 193, 195, 0.2)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>✓ Listo para enviar a 3 aseguradoras.</span>
-          </div>}
-        </article>
-
-        {/* Modulo 3: Presentación */}
-        <article className="panel">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-            <span style={{ background: 'var(--primary)', color: 'white', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '0.8rem', fontWeight: 'bold' }}>3</span>
-            <h3 style={{ margin: 0 }}>Presentación al Cliente</h3>
-          </div>
-          <p className="small" style={{ marginBottom: '1rem' }}>Genera un comparativo visual de las cotizaciones recibidas para facilitar la toma de decisiones del cliente.</p>
-          
-          {/* Mock Comparison Cards */}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem', opacity: clientId ? 1 : 0.4, pointerEvents: 'none' }}>
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Opción A</div>
-              <div style={{ fontSize: '1rem', fontWeight: 'bold', margin: '5px 0' }}>$2,450</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--ok)' }}>Mejor Precio</div>
+              <div className="actions-right">
+                <button className="btn-primary" onClick={createSubmission} disabled={isLoading}>
+                  {isLoading ? "Guardando..." : "Guardar Expediente →"}
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1, background: 'rgba(34, 193, 195, 0.1)', padding: '10px', borderRadius: '8px', border: '1px solid var(--primary)', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--primary)', textTransform: 'uppercase' }}>Opción B</div>
-              <div style={{ fontSize: '1rem', fontWeight: 'bold', margin: '5px 0' }}>$2,800</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--ok)' }}>Mejor Cobertura</div>
+          )}
+
+          {activeView === 'm2' && (
+            <div className="card fade-in">
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
+                <div>
+                  <h3 style={{margin: 0}}>Generador de Solicitud de Cotización (RFQ)</h3>
+                  <p className="text-muted" style={{marginTop: '5px', fontSize: '0.9rem'}}>Selecciona a qué aseguradoras deseas invitar a cotizar.</p>
+                </div>
+                <button className="btn-secondary" onClick={producePDF} disabled={isLoading}>📄 Producir PDF con el RFQ</button>
+              </div>
+
+              <h4 style={{marginBottom: '1rem'}}>Mercado Disponible</h4>
+              <div className="insurer-list">
+                {insurers.map(ins => (
+                  <label key={ins.id} className="insurer-row">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedInsurers.includes(ins.id)}
+                      onChange={e => {
+                        if (e.target.checked) setSelectedInsurers([...selectedInsurers, ins.id]);
+                        else setSelectedInsurers(selectedInsurers.filter(id => id !== ins.id));
+                      }}
+                    />
+                    <span className="ins-name">{ins.name}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="actions-right" style={{marginTop: '2rem'}}>
+                <button className="btn-primary" onClick={sendRfq} disabled={isLoading || selectedInsurers.length === 0}>
+                  {isLoading ? "Enviando..." : \`✉️ Enviar RFQ a \${selectedInsurers.length} Aseguradoras\`}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
-          <button disabled={isLoading || !clientId} onClick={generatePresentation}>Generar Enlace Interactivo</button>
-        </article>
+          {activeView === 'm3' && (
+            <div className="card fade-in">
+              <h3 style={{marginTop: 0, marginBottom: '0.5rem'}}>Recepción de Cotizaciones</h3>
+              <p className="text-muted" style={{marginBottom: '2rem'}}>Adjunta las cotizaciones recibidas de las aseguradoras seleccionadas.</p>
 
-        {/* Modulo 4: Evaluación */}
-        <article className="panel">
-           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-            <span style={{ background: '#8b5cf6', color: 'white', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '0.8rem', fontWeight: 'bold' }}>4</span>
-            <h3 style={{ margin: 0 }}>Auditoría de Póliza (IA)</h3>
-          </div>
-          <p className="small" style={{ marginBottom: '1.5rem' }}>Compara la póliza emitida en PDF contra los requisitos originales solicitados para evitar sorpresas o exclusiones ocultas.</p>
-          
-          <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px dashed var(--line)', textAlign: 'center', marginBottom: '1rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
-             📄 Arrastra la póliza final aquí (PDF)
-          </div>
+              <div className="quote-upload-list">
+                {selectedInsurers.length === 0 && <p className="text-muted">No seleccionaste ninguna aseguradora en el Módulo 2.</p>}
+                {selectedInsurers.map(insId => {
+                  const ins = insurers.find(i => i.id === insId);
+                  const isUploaded = quotesUploaded[insId];
+                  return (
+                    <div key={insId} className={\`quote-row \${isUploaded ? 'uploaded' : ''}\`}>
+                      <div className="ins-name">🏢 {ins?.name}</div>
+                      <div className="upload-action">
+                        {isUploaded ? (
+                          <span className="badge-success">✓ Cotización Adjunta</span>
+                        ) : (
+                          <button className="btn-outline" onClick={() => handleQuoteUpload(insId)}>📎 Adjuntar Cotización</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-          <button disabled={isLoading || !submissionId} onClick={runPolicyEvaluation} style={{ background: 'linear-gradient(130deg, #8b5cf6, #6d28d9)' }}>Analizar con IA</button>
-        </article>
-      </section>
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
+              {presentationGenerated ? (
+                <div className="success-panel" style={{marginTop: '2rem'}}>
+                  <h4 style={{margin: '0 0 0.5rem', color: '#15803d'}}>¡Presentación Creada!</h4>
+                  <p style={{margin: 0, fontSize: '0.9rem'}}>Se ha estructurado el comparativo visual para el cliente.</p>
+                  <button className="btn-outline" style={{marginTop: '1rem'}}>Abrir Presentación ↗</button>
+                </div>
+              ) : (
+                <div className="actions-right" style={{marginTop: '2rem'}}>
+                  <button 
+                    className="btn-primary" 
+                    onClick={createPresentation} 
+                    disabled={isLoading || Object.keys(quotesUploaded).length === 0}
+                  >
+                    {isLoading ? "Procesando..." : "📊 Crear Presentación Comparativa"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeView === 'm4' && (
+            <div className="card fade-in">
+              <h3 style={{marginTop: 0, marginBottom: '0.5rem'}}>Auditoría de Póliza Emitida (IA)</h3>
+              <p className="text-muted" style={{marginBottom: '2rem'}}>Sube el contrato final emitido por la aseguradora para validarlo contra el RFQ original.</p>
+
+              {!policyUploaded ? (
+                <div className="upload-zone" onClick={() => setPolicyUploaded(true)}>
+                  <div style={{fontSize: '2rem', marginBottom: '1rem'}}>📄</div>
+                  Haz clic aquí para adjuntar la Póliza Final (PDF)
+                </div>
+              ) : (
+                <div className="upload-zone uploaded" onClick={() => setPolicyUploaded(false)}>
+                  ✓ poliza_final_emitida.pdf adjunta
+                </div>
+              )}
+
+              <div className="actions-right" style={{marginTop: '2rem'}}>
+                <button className="btn-primary" onClick={analyzePolicy} disabled={isLoading || !policyUploaded}>
+                  {isLoading ? "Analizando documento..." : "🔍 Analizar Póliza con IA"}
+                </button>
+              </div>
+
+              {evaluationDone && (
+                <div className="findings-panel" style={{marginTop: '2rem'}}>
+                  <h4>📋 Resumen de Auditoría (Findings)</h4>
+                  <ul className="findings-list">
+                    <li><span className="status-ok">✓</span> <strong>Límite de Cobertura:</strong> Coincide perfectamente con lo solicitado en el Módulo 1.</li>
+                    <li><span className="status-warn">!</span> <strong>Cláusula Adicional:</strong> Se identificó una exclusión no mencionada en el RFQ (Pág. 14 - Riesgos de la naturaleza).</li>
+                    <li><span className="status-ok">✓</span> <strong>Datos del Asegurado:</strong> Razón social e industria correctos.</li>
+                  </ul>
+                  <p style={{marginTop: '1rem', fontSize: '0.85rem', color: '#64748b'}}>* Se recomienda revisar la exclusión en la página 14 antes de entregar el contrato físico al cliente.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Corporate CSS Inject */}
+      <style dangerouslySetInnerHTML={{__html: \`
+        :root {
+          --bg: #f8fafc;
+          --surface: #ffffff;
+          --primary: #0f172a;
+          --primary-hover: #334155;
+          --secondary: #e2e8f0;
+          --text: #1e293b;
+          --text-muted: #64748b;
+          --border: #cbd5e1;
+          --success: #10b981;
+          --warning: #f59e0b;
         }
-      `}} />
-    </main>
+        
+        * { box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+        body { margin: 0; background: var(--bg); color: var(--text); }
+        
+        .dashboard-layout { display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .sidebar-brand { padding: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-nav { flex: 1; padding: 1.5rem 0; overflow-y: auto; }
+        .nav-section { padding: 0 1.5rem; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .nav-item { width: 100%; text-align: left; background: none; border: none; padding: 0.6rem 1.5rem; font-size: 0.95rem; color: var(--text); cursor: pointer; transition: background 0.2s; }
+        .nav-item:hover:not(:disabled) { background: var(--bg); }
+        .nav-item.active { background: var(--primary); color: white; font-weight: 500; }
+        .nav-item:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .client-folder { background: #f1f5f9; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+        .client-name { padding: 0.8rem 1.5rem; font-weight: 600; font-size: 0.85rem; color: var(--primary); border-bottom: 1px solid #e2e8f0; text-transform: uppercase; }
+        .sub-item { padding-left: 2rem; font-size: 0.85rem; border-bottom: 1px solid #e2e8f0; }
+        .sub-item:last-child { border-bottom: none; }
+        
+        .sidebar-footer { padding: 1.5rem; border-top: 1px solid var(--border); background: var(--bg); }
+        .user-info { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--primary); }
+        .btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0; text-decoration: underline; }
+        
+        /* Main */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .topbar { padding: 1.5rem 3rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .topbar h2 { margin: 0; font-size: 1.4rem; font-weight: 600; color: var(--primary); }
+        .content-area { padding: 2.5rem 3rem; max-width: 1000px; }
+        
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        
+        /* Forms & Inputs */
+        .input-group { margin-bottom: 1.5rem; flex: 1; display: flex; flex-direction: column; }
+        .input-group label { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
+        input, select, textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; background: var(--surface); color: var(--text); outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+        .form-grid .input-group { margin-bottom: 0; }
+        .divider { border: 0; height: 1px; background: var(--border); margin: 2rem 0; }
+        
+        /* Buttons */
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 500; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-secondary { background: var(--secondary); color: var(--text); border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 500; cursor: pointer; font-size: 0.9rem; }
+        .btn-secondary:hover:not(:disabled) { background: #cbd5e1; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 0.85rem; }
+        .btn-outline:hover { border-color: var(--primary); }
+        .actions-right { display: flex; justify-content: flex-end; }
+        
+        /* Custom UI Elements */
+        .insurer-list { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .insurer-row { display: flex; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; margin: 0; }
+        .insurer-row:hover { background: var(--bg); }
+        .insurer-row:last-child { border-bottom: none; }
+        .insurer-row input { width: auto; margin-right: 1rem; transform: scale(1.2); }
+        .ins-name { font-weight: 500; }
+        
+        .quote-upload-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .quote-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border: 1px solid var(--border); border-radius: 6px; background: #f8fafc; }
+        .quote-row.uploaded { background: #f0fdf4; border-color: #86efac; }
+        .badge-success { color: var(--success); font-weight: 600; font-size: 0.85rem; }
+        
+        .upload-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; color: var(--text-muted); transition: all 0.2s; background: var(--bg); }
+        .upload-zone:hover { border-color: var(--primary); background: var(--secondary); }
+        .upload-zone.uploaded { border-style: solid; border-color: var(--success); background: #f0fdf4; color: var(--success); font-weight: 600; }
+        
+        .success-panel { background: #f0fdf4; border: 1px solid #86efac; padding: 1.5rem; border-radius: 6px; }
+        
+        .findings-panel { background: #f8fafc; border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 1.5rem; border-radius: 6px; }
+        .findings-panel h4 { margin: 0 0 1rem; color: var(--primary); }
+        .findings-list { list-style: none; padding: 0; margin: 0; }
+        .findings-list li { margin-bottom: 0.8rem; font-size: 0.95rem; }
+        .status-ok { color: var(--success); font-weight: bold; margin-right: 0.5rem; }
+        .status-warn { color: var(--warning); font-weight: bold; margin-right: 0.5rem; }
+        
+        .text-muted { color: var(--text-muted); }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      \`}} />
+    </div>
   );
 }
