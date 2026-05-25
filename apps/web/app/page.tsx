@@ -162,7 +162,8 @@ export default function HomePage() {
           .login-box p { color: #64748b; margin: 0 0 2rem; font-size: 0.9rem; }
           .input-group { margin-bottom: 1.5rem; }
           .input-group label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.5rem; color: #1e293b; }
-          input { width: 100%; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; }
+          input { width: 100%; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; color: #1e293b; background: white; }
+          input::placeholder { color: #94a3b8; }
           .btn-primary { background: #0f172a; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 500; cursor: pointer; }
           .error-box { background: #fef2f2; border: 1px solid #fca5a5; color: #ef4444; padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; }
         `}} />
