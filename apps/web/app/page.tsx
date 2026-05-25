@@ -51,6 +51,34 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   async function safeRequest<T>(path: string, init?: RequestInit): Promise<T> {
+    // MODO DEMO: Interceptamos las llamadas para que funcione sin backend/DB
+    await new Promise(r => setTimeout(r, 800)); // Simulamos latencia de red
+
+    if (path === "/api/health") return { ok: true } as T;
+    
+    if (path === "/api/submissions" && init?.method === "POST") {
+      const body = JSON.parse(init.body as string);
+      return { 
+        id: "SUB-" + Math.floor(1000 + Math.random() * 9000), 
+        clientId: "CLI-" + Math.floor(1000 + Math.random() * 9000), 
+        client: { name: body.client.name || "Cliente Demo" } 
+      } as T;
+    }
+    
+    if (path === "/api/insurers/seed") return { success: true } as T;
+    
+    if (path === "/api/insurers") {
+      return [{ id: "INS-1" }, { id: "INS-2" }, { id: "INS-3" }] as T;
+    }
+    
+    if (path === "/api/rfqs/generate") return { success: true } as T;
+    
+    if (path === "/api/presentations") return { success: true } as T;
+    
+    if (path === "/api/policy-evaluations") {
+      return { id: "EVAL-" + Math.floor(100 + Math.random() * 900) } as T;
+    }
+
     const response = await fetch(`${apiUrl}${path}`, init);
     const isJson = response.headers.get("content-type")?.includes("application/json");
     const payload = isJson ? await response.json() : null;
