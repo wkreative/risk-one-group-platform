@@ -153,7 +153,7 @@ export default function HomePage() {
             <button type="submit" className="btn-primary" style={{width: '100%', marginTop: '1rem'}}>Iniciar Sesión</button>
           </form>
         </section>
-        <style dangerouslySetInnerHTML={{__html: \`
+        <style dangerouslySetInnerHTML={{__html: `
           body { margin: 0; font-family: 'Inter', sans-serif; background: #e2e8f0; }
           .login-wrapper { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
           .login-box { background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; }
@@ -165,7 +165,7 @@ export default function HomePage() {
           input { width: 100%; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; }
           .btn-primary { background: #0f172a; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 500; cursor: pointer; }
           .error-box { background: #fef2f2; border: 1px solid #fca5a5; color: #ef4444; padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; }
-        \`}} />
+        `}} />
       </main>
     );
   }
@@ -409,7 +409,7 @@ export default function HomePage() {
       </main>
 
       {/* Corporate CSS Inject */}
-      <style dangerouslySetInnerHTML={{__html: \`
+      <style dangerouslySetInnerHTML={{__html: `
         :root {
           --bg: #f8fafc;
           --surface: #ffffff;
@@ -503,7 +503,7 @@ export default function HomePage() {
         .text-muted { color: var(--text-muted); }
         .fade-in { animation: fadeIn 0.4s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      \`}} />
+      `}} />
     </div>
   );
 }
