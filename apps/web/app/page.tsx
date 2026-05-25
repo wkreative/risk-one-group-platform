@@ -179,7 +179,7 @@ export default function HomePage() {
         </div>
         <nav className="sidebar-nav">
           <div className="nav-section">PRINCIPAL</div>
-          <button className={\`nav-item \${activeView === 'dashboard' ? 'active' : ''}\`} onClick={() => setActiveView('dashboard')}>
+          <button className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveView('dashboard')}>
             📊 Dashboard
           </button>
           
@@ -189,16 +189,16 @@ export default function HomePage() {
               📁 {form.client.name || "Nuevo Prospecto"}
             </div>
             <div className="client-modules">
-              <button className={\`nav-item sub-item \${activeView === 'm1' ? 'active' : ''}\`} onClick={() => setActiveView('m1')}>
+              <button className={`nav-item sub-item ${activeView === 'm1' ? 'active' : ''}`} onClick={() => setActiveView('m1')}>
                 1. Captación
               </button>
-              <button disabled={!hasClient} className={\`nav-item sub-item \${activeView === 'm2' ? 'active' : ''}\`} onClick={() => setActiveView('m2')}>
+              <button disabled={!hasClient} className={`nav-item sub-item ${activeView === 'm2' ? 'active' : ''}`} onClick={() => setActiveView('m2')}>
                 2. Generar RFQ
               </button>
-              <button disabled={!rfqSent} className={\`nav-item sub-item \${activeView === 'm3' ? 'active' : ''}\`} onClick={() => setActiveView('m3')}>
+              <button disabled={!rfqSent} className={`nav-item sub-item ${activeView === 'm3' ? 'active' : ''}`} onClick={() => setActiveView('m3')}>
                 3. Presentación
               </button>
-              <button disabled={!hasClient} className={\`nav-item sub-item \${activeView === 'm4' ? 'active' : ''}\`} onClick={() => setActiveView('m4')}>
+              <button disabled={!hasClient} className={`nav-item sub-item ${activeView === 'm4' ? 'active' : ''}`} onClick={() => setActiveView('m4')}>
                 4. Auditoría IA
               </button>
             </div>
@@ -264,7 +264,7 @@ export default function HomePage() {
                   <div className="input-group" key={field}>
                     <label style={{textTransform: 'capitalize'}}>{field.replace(/([A-Z])/g, ' $1').trim()}</label>
                     <input
-                      placeholder={field === 'valorAsegurado' || field === 'proteccionIncendio' ? '$0' : \`Ingresar \${field.toLowerCase()}\`}
+                      placeholder={field === 'valorAsegurado' || field === 'proteccionIncendio' ? '$0' : `Ingresar ${field.toLowerCase()}`}
                       value={form.payload[field] || ""}
                       onChange={e => handleInputChange(field, e.target.value)}
                     />
@@ -319,7 +319,7 @@ export default function HomePage() {
 
               <div className="actions-right" style={{marginTop: '2rem'}}>
                 <button className="btn-primary" onClick={sendRfq} disabled={isLoading || selectedInsurers.length === 0}>
-                  {isLoading ? "Enviando..." : \`✉️ Enviar RFQ a \${selectedInsurers.length} Aseguradoras\`}
+                  {isLoading ? "Enviando..." : `✉️ Enviar RFQ a ${selectedInsurers.length} Aseguradoras`}
                 </button>
               </div>
             </div>
@@ -336,7 +336,7 @@ export default function HomePage() {
                   const ins = insurers.find(i => i.id === insId);
                   const isUploaded = quotesUploaded[insId];
                   return (
-                    <div key={insId} className={\`quote-row \${isUploaded ? 'uploaded' : ''}\`}>
+                    <div key={insId} className={`quote-row ${isUploaded ? 'uploaded' : ''}`}>
                       <div className="ins-name">🏢 {ins?.name}</div>
                       <div className="upload-action">
                         {isUploaded ? (
